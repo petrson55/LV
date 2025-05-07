@@ -8,13 +8,17 @@ st.title("Extraktor údajů z výpisu z KN")
 
 uploaded_file = st.file_uploader("Nahraj výpis z KN (PDF nebo obrázek)", type=["pdf", "png", "jpg", "jpeg"])
 
-def extract_text_from_pdf(file):
-    with pdfplumber.open(file) as pdf:
-        return "\n".join(page.extract_text() for page in pdf.pages if page.extract_text())
-
-def extract_text_from_image(file):
-    image = Image.open(file)
+def extract_text_from_image(image):
     return pytesseract.image_to_string(image, lang='ces')
+
+def extract_text_from_pdf(file):
+    text = ""
+    with pdfplumber.open(file) as pdf:
+        for page in pdf.pages:
+            # OCR fallback: převede stránku na obrázek a použije pytesseract
+            image = page.to_image(resolution=300).original
+            text += extract_text_from_image(image) + "\n"
+    return text
 
 if uploaded_file:
     file_type = uploaded_file.type
@@ -22,7 +26,8 @@ if uploaded_file:
     if "pdf" in file_type:
         text = extract_text_from_pdf(uploaded_file)
     else:
-        text = extract_text_from_image(uploaded_file)
+        image = Image.open(uploaded_file)
+        text = extract_text_from_image(image)
 
     st.subheader("Extrahovaný text")
     st.text_area("Výpis", value=text, height=300)
